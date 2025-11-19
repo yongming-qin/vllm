@@ -1,49 +1,27 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
 """
-Model configs may be defined in this directory for the following reasons:
+Lazy-loaded model config registry for vLLM.
 
-- There is no configuration file defined by HF Hub or Transformers library.
-- There is a need to override the existing config to support vLLM.
-- The HF model_type is not recognized by Transformers library but maps to a
-  config in Transformers library, ex., deepseek-ai/DeepSeek-V3.2-Exp.
+This module lazily exposes config classes without importing all
+config submodules upfront, dramatically reducing import time.
+
+Behavior:
+- `configs.<ConfigClass>` triggers a dynamic import of only the
+  corresponding module.
+- Keeps full compatibility with existing vLLM imports.
 """
 
-from transformers import DeepseekV3Config
+from __future__ import annotations
+import importlib
+from typing import Dict
 
-from vllm.transformers_utils.configs.afmoe import AfmoeConfig
-from vllm.transformers_utils.configs.chatglm import ChatGLMConfig
-from vllm.transformers_utils.configs.deepseek_vl2 import DeepseekVLV2Config
-from vllm.transformers_utils.configs.dotsocr import DotsOCRConfig
-from vllm.transformers_utils.configs.eagle import EAGLEConfig
 
-# RWConfig is for the original tiiuae/falcon-40b(-instruct) and
-# tiiuae/falcon-7b(-instruct) models. Newer Falcon models will use the
-# `FalconConfig` class from the official HuggingFace transformers library.
-from vllm.transformers_utils.configs.falcon import RWConfig
-from vllm.transformers_utils.configs.flex_olmo import FlexOlmoConfig
-from vllm.transformers_utils.configs.jais import JAISConfig
-from vllm.transformers_utils.configs.kimi_linear import KimiLinearConfig
-from vllm.transformers_utils.configs.kimi_vl import KimiVLConfig
-from vllm.transformers_utils.configs.lfm2_moe import Lfm2MoeConfig
-from vllm.transformers_utils.configs.medusa import MedusaConfig
-from vllm.transformers_utils.configs.midashenglm import MiDashengLMConfig
-from vllm.transformers_utils.configs.mlp_speculator import MLPSpeculatorConfig
-from vllm.transformers_utils.configs.moonvit import MoonViTConfig
-from vllm.transformers_utils.configs.nemotron import NemotronConfig
-from vllm.transformers_utils.configs.nemotron_h import NemotronHConfig
-from vllm.transformers_utils.configs.olmo3 import Olmo3Config
-from vllm.transformers_utils.configs.ovis import OvisConfig
-from vllm.transformers_utils.configs.qwen3_next import Qwen3NextConfig
-from vllm.transformers_utils.configs.radio import RadioConfig
-from vllm.transformers_utils.configs.speculators.base import SpeculatorsConfig
-from vllm.transformers_utils.configs.step3_vl import (
-    Step3TextConfig,
-    Step3VisionEncoderConfig,
-    Step3VLConfig,
-)
-from vllm.transformers_utils.configs.ultravox import UltravoxConfig
-
+# ------------------------------------------------------------------------------
+# List of all exportable config classes.
+# These are *names only*; they are NOT imported yet.
+# ------------------------------------------------------------------------------
 __all__ = [
     "AfmoeConfig",
     "ChatGLMConfig",
@@ -73,3 +51,67 @@ __all__ = [
     "Step3TextConfig",
     "Qwen3NextConfig",
 ]
+
+
+# ------------------------------------------------------------------------------
+# Map class names → module paths.
+# Only this dictionary is evaluated at import time.
+# Each class is imported lazily when first accessed.
+# ------------------------------------------------------------------------------
+_CLASS_TO_MODULE: Dict[str, str] = {
+    "AfmoeConfig": "vllm.transformers_utils.configs.afmoe",
+    "ChatGLMConfig": "vllm.transformers_utils.configs.chatglm",
+    "DeepseekVLV2Config": "vllm.transformers_utils.configs.deepseek_vl2",
+    "DotsOCRConfig": "vllm.transformers_utils.configs.dotsocr",
+    "EAGLEConfig": "vllm.transformers_utils.configs.eagle",
+    "FlexOlmoConfig": "vllm.transformers_utils.configs.flex_olmo",
+    "RWConfig": "vllm.transformers_utils.configs.falcon",
+    "JAISConfig": "vllm.transformers_utils.configs.jais",
+    "Lfm2MoeConfig": "vllm.transformers_utils.configs.lfm2_moe",
+    "MedusaConfig": "vllm.transformers_utils.configs.medusa",
+    "MiDashengLMConfig": "vllm.transformers_utils.configs.midashenglm",
+    "MLPSpeculatorConfig": "vllm.transformers_utils.configs.mlp_speculator",
+    "MoonViTConfig": "vllm.transformers_utils.configs.moonvit",
+    "KimiLinearConfig": "vllm.transformers_utils.configs.kimi_linear",
+    "KimiVLConfig": "vllm.transformers_utils.configs.kimi_vl",
+    "NemotronConfig": "vllm.transformers_utils.configs.nemotron",
+    "NemotronHConfig": "vllm.transformers_utils.configs.nemotron_h",
+    "Olmo3Config": "vllm.transformers_utils.configs.olmo3",
+    "OvisConfig": "vllm.transformers_utils.configs.ovis",
+    "RadioConfig": "vllm.transformers_utils.configs.radio",
+    "SpeculatorsConfig": "vllm.transformers_utils.configs.speculators.base",
+    "UltravoxConfig": "vllm.transformers_utils.configs.ultravox",
+    "Step3VLConfig": "vllm.transformers_utils.configs.step3_vl",
+    "Step3VisionEncoderConfig": "vllm.transformers_utils.configs.step3_vl",
+    "Step3TextConfig": "vllm.transformers_utils.configs.step3_vl",
+    "Qwen3NextConfig": "vllm.transformers_utils.configs.qwen3_next",
+
+    # Special case: DeepseekV3Config is from HuggingFace Transformers
+    "DeepseekV3Config": "transformers",
+}
+
+
+# ------------------------------------------------------------------------------
+# Lazy attribute loader (PEP 562)
+# ------------------------------------------------------------------------------
+def __getattr__(name: str):
+    """Lazily load config classes when accessed.
+
+    Example:
+        from vllm.transformers_utils.configs import DeepseekVLV2Config
+        # This triggers a dynamic import of configs.deepseek_vl2
+    """
+    if name in _CLASS_TO_MODULE:
+        module_name = _CLASS_TO_MODULE[name]
+        module = importlib.import_module(module_name)
+        return getattr(module, name)
+
+    raise AttributeError(f"module 'configs' has no attribute '{name}'")
+
+
+# ------------------------------------------------------------------------------
+# Optional: Improve autocomplete in IDEs
+# Create module attributes by wrapping __getattr__
+# ------------------------------------------------------------------------------
+def __dir__():
+    return sorted(list(__all__))
