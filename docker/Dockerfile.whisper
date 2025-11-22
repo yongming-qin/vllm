@@ -1,0 +1,9 @@
+# The vLLM Dockerfile is used to construct vLLM image that can be directly used
+# to run the OpenAI compatible server.
+
+# This one is to add audio support for whisper
+
+FROM vllm/vllm-openai:latest
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system "vllm[audio]"
