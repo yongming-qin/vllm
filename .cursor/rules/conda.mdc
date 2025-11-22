@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+use conda activate vllm for the python environment.

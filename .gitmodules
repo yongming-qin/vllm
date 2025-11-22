@@ -1,0 +1,6 @@
+[submodule "yq/gpt2"]
+	path = yq/gpt2
+	url = https://huggingface.co/openai-community/gpt2
+[submodule "yq/openvla-7b"]
+	path = yq/openvla-7b
+	url = https://huggingface.co/openvla/openvla-7b
