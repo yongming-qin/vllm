@@ -80,6 +80,7 @@ __all__ = [
     "NemotronConfig",
     "NemotronHConfig",
     "Olmo3Config",
+    "OpenVLAConfig",
     "OvisConfig",
     "PixelShuffleSiglip2VisionConfig",
     "RadioConfig",
